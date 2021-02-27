@@ -1,0 +1,88 @@
+version: "3.9"
+services:
+  web:
+    build: .
+    ports:
+      - "5000:5000"
+  redis:
+    image: "redis:alpine"
+  mysql:
+    image: mysql:5.7
+    restart: always
+    environment:
+      MYSQL_DATABASE: test
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_ROOT_HOST: 0.0.0.0
+      MYSQL_USER: testing
+      MYSQL_PASSWORD: testing
+    ports:
+      - "3306:3306"
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:5.4.3
+    container_name: elasticsearch
+    ports:
+      - "9200:9200"
+      - "9300:9300"
+    tty: true
+    environment:
+      - discovery.type=single-node
+    networks:
+      - elastic
+  kibana:
+    image: docker.elastic.co/kibana/kibana:5.4.3
+    container_name: kibana
+    environment:
+      - "ELASTICSEARCH_URL=http://elasticsearch:9200"
+    ports:
+      - 5601:5601
+    depends_on:
+      - elasticsearch
+    networks:
+      - elastic
+  logstash:
+    image: docker.elastic.co/logstash/logstash:5.6.3
+    volumes:
+      - ./logstash.conf:/usr/share/logstash/pipeline/logstash.conf
+      - ./logstash.template.json:/usr/share/logstash/templates/logstash.template.json
+    command: logstash -f /config-dir/logstash.conf
+    ports:
+      - 5044:5044
+    depends_on:
+      - elasticsearch
+  filebeat:
+    user: root
+    container_name: filebeat
+    image: docker.elastic.co/beats/filebeat:7.5.0
+    links:
+      - logstash:logstash
+    depends_on:
+      - logstash
+    volumes:
+      - /var/run/docker.sock:/host_docker/docker.sock
+      - /var/lib/docker:/host_docker/var/lib/docker
+      - ./filebeat.yml:/usr/share/filebeat/filebeat.yml
+    command: [ "--strict.perms=false" ]
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+    stdin_open: true
+    tty: true
+    networks:
+      - elastic
+    deploy:
+      mode: global
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "50"
+
+volumes:
+  #Filebeat data i.e. registry file
+  fbdata:
+    driver: local
+
+networks:
+  elastic:
+    driver: bridge

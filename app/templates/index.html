@@ -1,0 +1,10 @@
+{% extends "base.html" %}
+
+{% block content %}
+    <h1>Hi, {{ current_user.username }}!</h1>
+    <p>This Compose/Flask demo has been viewed {{ hits }} time(s).</p>
+    <p><img src="https://cakester.s3.ca-central-1.amazonaws.com/Llama_Alp-1200x644.jpg" alt="alternatetext"></p>
+    {% for post in posts %}
+    <div><p>{{ post.author.username }} says: <b>{{ post.body }}</b></p></div>
+    {% endfor %}
+{% endblock %}
